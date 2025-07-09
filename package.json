@@ -1,0 +1,59 @@
+{
+  "name": "swiss-ephemeris-mcp-server",
+  "version": "1.0.2",
+  "description": "A Model Context Protocol (MCP) server that provides access to Swiss Ephemeris astronomical calculations for planetary positions, houses, chart points, and asteroids. Supports both stdio and HTTP transport modes.",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "swiss-ephemeris-mcp-server": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "start:http": "MCP_HTTP_MODE=true node index.js",
+    "dev": "node --watch index.js",
+    "dev:http": "MCP_HTTP_MODE=true node --watch index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "swiss-ephemeris",
+    "astrology",
+    "astronomy",
+    "planetary-positions",
+    "ephemeris",
+    "birth-chart",
+    "natal-chart",
+    "horoscope",
+    "celestial-bodies",
+    "asteroids",
+    "houses",
+    "astrological-calculations"
+  ],
+  "author": "Swiss Ephemeris MCP Server",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dm0lz/swiss-ephemeris-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dm0lz/swiss-ephemeris-mcp-server/issues"
+  },
+  "homepage": "https://github.com/dm0lz/swiss-ephemeris-mcp-server#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE",
+    "vendor/"
+  ]
+} 
