@@ -1,166 +1,83 @@
 # Swiss Ephemeris MCP Server
 
-A Model Context Protocol (MCP) server that exposes Swiss Ephemeris astronomical calculations for birth chart generation.
+A Model Context Protocol (MCP) server that provides astronomical calculations using the Swiss Ephemeris library. Calculate planetary positions, houses, chart points, and asteroids for any date and location.
 
 ## Features
 
 - **Planetary Positions**: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto
-- **Additional Points**: North Node, South Node, Chiron, Lilith (Mean Apogee), Part of Fortune
-- **House System**: Complete 12-house calculation using Placidus system
-- **Chart Points**: Ascendant, Midheaven, IC, Descendant, Vertex, ARMC
-- **Dual Transport**: Supports both stdio (Claude Desktop) and HTTP (Claude Web) modes
+- **Lunar Nodes**: True and Mean Node calculations
+- **Asteroids**: Chiron, Ceres, Pallas, Juno, Vesta, Lilith
+- **Houses**: 12-house system using Placidus
+- **Chart Points**: Ascendant, Midheaven, IC, Descendant
+- **Additional Points**: South Node, Part of Fortune
 
-## Docker Deployment
+## Installation
 
-### Quick Start with Docker Compose
+### Claude Desktop
 
-#### For HTTP Mode (Claude Web + ngrok)
-```bash
-# Start HTTP server
-docker-compose --profile http up -d
-
-# The server will be available at http://localhost:8000
-# Use ngrok to create HTTPS tunnel:
-ngrok http 8000
-
-# Connect Claude to: https://xyz.ngrok.io/mcp
-```
-
-#### For Stdio Mode (Claude Desktop)
-```bash
-# Build the image
-docker-compose --profile stdio build
-
-# For stdio mode, you'll need to integrate with your Claude Desktop config
-# See configuration section below
-```
-
-### Manual Docker Commands
-
-#### Build the Image
-```bash
-docker build -t swiss-ephemeris-mcp .
-```
-
-#### Run HTTP Mode
-```bash
-docker run -d \
-  --name swiss-ephemeris-http \
-  -p 8000:8000 \
-  -e MCP_HTTP_MODE=true \
-  swiss-ephemeris-mcp
-```
-
-#### Run Stdio Mode
-```bash
-docker run -it \
-  --name swiss-ephemeris-stdio \
-  -e MCP_HTTP_MODE=false \
-  swiss-ephemeris-mcp
-```
-
-### Health Check
-```bash
-# Check if HTTP server is running
-curl http://localhost:8000/health
-
-# Check container logs
-docker logs swiss-ephemeris-mcp-http
-```
-
-## Local Development
-
-### Prerequisites
-- Node.js 18+
-- Swiss Ephemeris `swetest` command available in PATH
-
-### Installation
-```bash
-# Install dependencies
-npm install
-
-# Start in stdio mode (default)
-npm start
-
-# Start in HTTP mode
-MCP_HTTP_MODE=true npm start
-```
-
-## Configuration
-
-### Claude Desktop (Stdio Mode)
-Add to your `claude_desktop_config.json`:
+Add to your Claude Desktop configuration:
 
 ```json
 {
   "mcpServers": {
     "swissEphemeris": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "swiss-ephemeris-mcp"
-      ]
+      "command": "npx",
+      "args": ["github:dm0lz/swiss-ephemeris-mcp-server"]
     }
   }
 }
 ```
 
-### Claude Web (HTTP Mode)
-1. Start the HTTP server: `docker-compose --profile http up -d`
-2. Create ngrok tunnel: `ngrok http 8000`
-3. Connect Claude to: `https://xyz.ngrok.io/mcp`
+### Manual Installation
 
-## API Usage
+```bash
+git clone https://github.com/dm0lz/swiss-ephemeris-mcp-server.git
+cd swiss-ephemeris-mcp-server
+npm install
+npm start
+```
 
-### Tool: `calculate_birth_chart`
+## Usage
+
+The server provides one main tool:
+
+### `calculate_planetary_positions`
+
+Calculate astronomical data for a specific date, time, and location.
 
 **Parameters:**
-- `datetime` (string): ISO8601 datetime (e.g., "1986-08-16T01:15:00Z")
+- `datetime` (string): ISO8601 format, e.g., "1985-04-12T23:20:50Z"
 - `latitude` (number): Latitude in decimal degrees (-90 to 90)
 - `longitude` (number): Longitude in decimal degrees (-180 to 180)
 
-**Example Request:**
-```json
-{
-  "datetime": "1986-08-16T01:15:00Z",
-  "latitude": 46.1436,
-  "longitude": 6.0826
-}
+**Returns:**
+- `planets`: Positions of all planets and celestial bodies
+- `houses`: 12 astrological houses
+- `chart_points`: Ascendant, Midheaven, IC, Descendant
+- `additional_points`: South Node, Part of Fortune
+
+## Docker
+
+```bash
+# Build and run
+docker build -t swiss-ephemeris-mcp .
+docker run -p 8000:8000 -e MCP_HTTP_MODE=true swiss-ephemeris-mcp
+
+# Health check
+curl http://localhost:8000/health
 ```
 
-**Example Response:**
-```json
-{
-  "planets": {
-    "Sun": { "longitude": 142.9, "sign": "Leo", "degree": 22.9 },
-    "Moon": { "longitude": 272.35, "sign": "Capricorn", "degree": 2.35 }
-  },
-  "houses": {
-    "1": { "longitude": 103.66, "sign": "Cancer", "degree": 13.66 }
-  },
-  "chart_points": {
-    "Ascendant": { "longitude": 103.66, "sign": "Cancer", "degree": 13.66 },
-    "Midheaven": { "longitude": 348.01, "sign": "Pisces", "degree": 18.01 }
-  },
-  "additional_points": {
-    "South Node": { "longitude": 202.82, "sign": "Libra", "degree": 22.82 },
-    "Part of Fortune": { "longitude": 134.01, "sign": "Leo", "degree": 14.01 }
-  },
-  "datetime": "1986-08-16T01:15:00Z",
-  "coordinates": { "latitude": 46.1436, "longitude": 6.0826 }
-}
-```
+## Transport Modes
 
-## Docker Image Details
+- **Stdio**: Default mode for Claude Desktop integration
+- **HTTP**: Use `MCP_HTTP_MODE=true` for web integration via ngrok
 
-- **Base Image**: `node:18-alpine`
-- **Swiss Ephemeris**: Built from source (https://github.com/aloistr/swisseph.git)
-- **Security**: Runs as non-root user
-- **Size**: Optimized with multi-stage build and minimal dependencies
-- **Health Check**: Built-in health monitoring
+## Links
+
+- **MCP URL**: https://www.theme-astral.me/mcp
+- **Repository**: https://github.com/dm0lz/swiss-ephemeris-mcp-server
+- **Swiss Ephemeris**: https://www.astro.com/swisseph/
 
 ## License
 
 MIT 
-
-docker build --platform=linux/amd64 -t olivier86/swiss-ephemeris-mcp-server:latest --push . 
