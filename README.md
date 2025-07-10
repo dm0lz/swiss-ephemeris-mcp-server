@@ -13,6 +13,20 @@ A Model Context Protocol (MCP) server that provides astronomical calculations us
 
 ## Installation
 
+#### Prerequisites for Local Development
+
+For local use with Claude Desktop, you need to install the Swiss Ephemeris `swetest` command:
+
+```bash
+# Install swetest (required for Claude Desktop usage)
+git clone https://github.com/aloistr/swisseph.git /tmp/swisseph && \
+    cd /tmp/swisseph && \
+    make && \
+    cp swetest /usr/local/bin/ && \
+    rm -rf /tmp/swisseph
+```
+
+
 ### Claude Desktop
 
 Add to your Claude Desktop configuration:
