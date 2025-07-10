@@ -55,6 +55,96 @@ class SwissEphemerisServer {
               required: ['datetime', 'latitude', 'longitude'],
             },
           },
+          {
+            name: 'calculate_transits',
+            description: 'Calculate birth chart positions and current transits for comparison. Returns both natal chart and current planetary positions.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                birth_datetime: {
+                  type: 'string',
+                  description: 'Birth datetime in ISO8601 format, e.g., 1985-04-12T23:20:50Z',
+                },
+                latitude: {
+                  type: 'number',
+                  description: 'Birth latitude in decimal degrees',
+                },
+                longitude: {
+                  type: 'number',
+                  description: 'Birth longitude in decimal degrees, positive east',
+                },
+              },
+              required: ['birth_datetime', 'latitude', 'longitude'],
+            },
+          },
+          {
+            name: 'calculate_solar_revolution',
+            description: 'Calculate solar return chart for a specific year. The solar return occurs when the Sun returns to the exact same position as at birth.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                birth_datetime: {
+                  type: 'string',
+                  description: 'Birth datetime in ISO8601 format, e.g., 1985-04-12T23:20:50Z',
+                },
+                birth_latitude: {
+                  type: 'number',
+                  description: 'Birth latitude in decimal degrees',
+                },
+                birth_longitude: {
+                  type: 'number',
+                  description: 'Birth longitude in decimal degrees, positive east',
+                },
+                return_year: {
+                  type: 'number',
+                  description: 'Year for the solar return calculation, e.g., 2024',
+                },
+                return_latitude: {
+                  type: 'number',
+                  description: 'Latitude for solar return location (optional, defaults to birth location)',
+                },
+                return_longitude: {
+                  type: 'number',
+                  description: 'Longitude for solar return location (optional, defaults to birth location)',
+                },
+              },
+              required: ['birth_datetime', 'birth_latitude', 'birth_longitude', 'return_year'],
+            },
+          },
+          {
+            name: 'calculate_synastry',
+            description: 'Calculate synastry chart between two people for relationship compatibility analysis. Compares planetary positions and calculates aspects between the charts.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                person1_datetime: {
+                  type: 'string',
+                  description: 'Person 1 birth datetime in ISO8601 format, e.g., 1985-04-12T23:20:50Z',
+                },
+                person1_latitude: {
+                  type: 'number',
+                  description: 'Person 1 birth latitude in decimal degrees',
+                },
+                person1_longitude: {
+                  type: 'number',
+                  description: 'Person 1 birth longitude in decimal degrees, positive east',
+                },
+                person2_datetime: {
+                  type: 'string',
+                  description: 'Person 2 birth datetime in ISO8601 format, e.g., 1990-08-25T14:30:00Z',
+                },
+                person2_latitude: {
+                  type: 'number',
+                  description: 'Person 2 birth latitude in decimal degrees',
+                },
+                person2_longitude: {
+                  type: 'number',
+                  description: 'Person 2 birth longitude in decimal degrees, positive east',
+                },
+              },
+              required: ['person1_datetime', 'person1_latitude', 'person1_longitude', 'person2_datetime', 'person2_latitude', 'person2_longitude'],
+            },
+          },
         ],
       };
     });
@@ -448,6 +538,77 @@ class SwissEphemerisServer {
     }
   }
 
+  calculateSynastryAspects(person1Planets, person2Planets) {
+    const aspects = [];
+    const aspectOrbs = {
+      'conjunction': 8,
+      'opposition': 8,
+      'trine': 8,
+      'square': 8,
+      'sextile': 6,
+      'quincunx': 3,
+      'semisextile': 3
+    };
+
+    const aspectAngles = {
+      'conjunction': 0,
+      'semisextile': 30,
+      'sextile': 60,
+      'square': 90,
+      'trine': 120,
+      'quincunx': 150,
+      'opposition': 180
+    };
+
+    // Main planets for synastry analysis
+    const mainPlanets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+
+    for (const planet1 of mainPlanets) {
+      if (!person1Planets[planet1]) continue;
+      
+      for (const planet2 of mainPlanets) {
+        if (!person2Planets[planet2]) continue;
+
+        const lon1 = person1Planets[planet1].longitude;
+        const lon2 = person2Planets[planet2].longitude;
+        
+        // Calculate the angular distance
+        let distance = Math.abs(lon1 - lon2);
+        if (distance > 180) {
+          distance = 360 - distance;
+        }
+
+        // Check for each aspect type
+        for (const [aspectName, aspectAngle] of Object.entries(aspectAngles)) {
+          const orb = aspectOrbs[aspectName];
+          const angleDiff = Math.abs(distance - aspectAngle);
+          
+          if (angleDiff <= orb) {
+            aspects.push({
+              person1_planet: planet1,
+              person2_planet: planet2,
+              aspect: aspectName,
+              orb: angleDiff.toFixed(2),
+              exact_angle: distance.toFixed(2),
+              person1_position: {
+                longitude: lon1,
+                sign: person1Planets[planet1].sign,
+                degree: person1Planets[planet1].degree
+              },
+              person2_position: {
+                longitude: lon2,
+                sign: person2Planets[planet2].sign,
+                degree: person2Planets[planet2].degree
+              }
+            });
+          }
+        }
+      }
+    }
+
+    return aspects.sort((a, b) => parseFloat(a.orb) - parseFloat(b.orb));
+  }
+
   async handleToolCall(name, args) {
     switch (name) {
       case 'calculate_planetary_positions':
@@ -475,6 +636,170 @@ class SwissEphemerisServer {
         }
 
         return this.calculateEphemeris(datetime, latitude, longitude);
+
+      case 'calculate_transits':
+        const { birth_datetime, latitude: birth_latitude, longitude: birth_longitude } = args;
+        
+        if (!birth_datetime || typeof birth_datetime !== 'string') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'birth_datetime parameter is required and must be a string'
+          );
+        }
+        
+        if (typeof birth_latitude !== 'number' || birth_latitude < -90 || birth_latitude > 90) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'birth_latitude must be a number between -90 and 90'
+          );
+        }
+        
+        if (typeof birth_longitude !== 'number' || birth_longitude < -180 || birth_longitude > 180) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'birth_longitude must be a number between -180 and 180'
+          );
+        }
+
+        // Calculate birth chart
+        const natalChart = this.calculateEphemeris(birth_datetime, birth_latitude, birth_longitude);
+ 
+         // Calculate current transits
+         const currentDate = new Date();
+         const currentISOString = currentDate.toISOString();
+         const currentEphemeris = this.calculateEphemeris(currentISOString, birth_latitude, birth_longitude);
+ 
+         return {
+           natal_chart: natalChart,
+           current_transits: currentEphemeris,
+           calculation_time: currentISOString
+         };
+
+      case 'calculate_solar_revolution':
+        const { birth_datetime: sr_birth_datetime, birth_latitude: sr_birth_latitude, birth_longitude: sr_birth_longitude, return_year, return_latitude, return_longitude } = args;
+
+        if (!sr_birth_datetime || typeof sr_birth_datetime !== 'string') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'birth_datetime parameter is required and must be a string'
+          );
+        }
+
+        if (typeof sr_birth_latitude !== 'number' || sr_birth_latitude < -90 || sr_birth_latitude > 90) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'birth_latitude must be a number between -90 and 90'
+          );
+        }
+
+        if (typeof sr_birth_longitude !== 'number' || sr_birth_longitude < -180 || sr_birth_longitude > 180) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'birth_longitude must be a number between -180 and 180'
+          );
+        }
+
+        if (typeof return_year !== 'number' || return_year < 1900 || return_year > 2100) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'return_year must be a number between 1900 and 2100'
+          );
+        }
+
+        // Calculate birth chart to get natal Sun position
+        const srNatalChart = this.calculateEphemeris(sr_birth_datetime, sr_birth_latitude, sr_birth_longitude);
+        const natalSunLongitude = srNatalChart.planets.Sun.longitude;
+
+        // Calculate solar return chart for the given year
+        // Use the birthday in the return year as a starting point
+        const birthDate = new Date(sr_birth_datetime);
+        const returnDate = new Date(return_year, birthDate.getMonth(), birthDate.getDate(), birthDate.getHours(), birthDate.getMinutes(), birthDate.getSeconds());
+        
+        // Use return location if provided, otherwise use birth location
+        const returnLat = return_latitude !== undefined ? return_latitude : sr_birth_latitude;
+        const returnLon = return_longitude !== undefined ? return_longitude : sr_birth_longitude;
+        
+        // Calculate the solar return chart at the approximate return date
+        const solarReturnChart = this.calculateEphemeris(returnDate.toISOString(), returnLat, returnLon);
+
+        return {
+          natal_chart: srNatalChart,
+          solar_return_chart: {
+            planets: solarReturnChart.planets,
+            houses: solarReturnChart.houses,
+            chart_points: solarReturnChart.chart_points,
+            additional_points: solarReturnChart.additional_points,
+            datetime: returnDate.toISOString(),
+            coordinates: {
+              latitude: returnLat,
+              longitude: returnLon
+            }
+          },
+          natal_sun_longitude: natalSunLongitude,
+          return_sun_longitude: solarReturnChart.planets.Sun.longitude,
+          calculation_time: new Date().toISOString()
+        };
+
+      case 'calculate_synastry':
+        const { person1_datetime, person1_latitude, person1_longitude, person2_datetime, person2_latitude, person2_longitude } = args;
+
+        if (!person1_datetime || typeof person1_datetime !== 'string') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'person1_datetime parameter is required and must be a string'
+          );
+        }
+
+        if (typeof person1_latitude !== 'number' || person1_latitude < -90 || person1_latitude > 90) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'person1_latitude must be a number between -90 and 90'
+          );
+        }
+
+        if (typeof person1_longitude !== 'number' || person1_longitude < -180 || person1_longitude > 180) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'person1_longitude must be a number between -180 and 180'
+          );
+        }
+
+        if (!person2_datetime || typeof person2_datetime !== 'string') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'person2_datetime parameter is required and must be a string'
+          );
+        }
+
+        if (typeof person2_latitude !== 'number' || person2_latitude < -90 || person2_latitude > 90) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'person2_latitude must be a number between -90 and 90'
+          );
+        }
+
+        if (typeof person2_longitude !== 'number' || person2_longitude < -180 || person2_longitude > 180) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'person2_longitude must be a number between -180 and 180'
+          );
+        }
+
+        // Calculate person 1's natal chart
+        const person1NatalChart = this.calculateEphemeris(person1_datetime, person1_latitude, person1_longitude);
+
+        // Calculate person 2's natal chart
+        const person2NatalChart = this.calculateEphemeris(person2_datetime, person2_latitude, person2_longitude);
+
+        // Calculate aspects between the two charts
+        const aspects = this.calculateSynastryAspects(person1NatalChart.planets, person2NatalChart.planets);
+
+        return {
+          person1_chart: person1NatalChart,
+          person2_chart: person2NatalChart,
+          synastry_aspects: aspects,
+          calculation_time: new Date().toISOString()
+        };
 
       default:
         throw new McpError(
